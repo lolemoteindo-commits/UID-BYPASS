@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UID Manager</title>
+    <script>
+        // Check if user has valid session (from sessionStorage - cleared on tab close)
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            window.location.href = 'login.html';
+        }
+        
+        // Get max days allowed for this key
+        const maxDays = parseInt(sessionStorage.getItem('maxDays')) || 1;
+        
+        // Verify token with backend
+        fetch('/api/verify-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: authToken })
+        }).then(res => {
+            if (!res.ok) {
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #ffffff;
+        }
+
+        .container {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 440px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding: 10px 14px;
+            background: #111111;
+            border-radius: 8px;
+        }
+
+        .user-badge {
+            font-size: 13px;
+            color: #888888;
+        }
+
+        .logout-btn {
+            padding: 6px 12px;
+            background: transparent;
+            color: #ff4444;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #ff4444;
+            color: #000000;
+            border-color: #ff4444;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #ffffff;
+        }
+
+        .header p {
+            color: #666666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #888888;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #222222;
+            border-radius: 8px;
+            font-size: 15px;
+            background: #111111;
+            color: #ffffff;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #00ff41;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: #00ff41;
+            color: #000000;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .submit-btn:hover {
+            opacity: 0.9;
+        }
+
+        .submit-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #000000;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+
+        .submit-btn.loading .spinner {
+            display: block;
+        }
+
+        .submit-btn.loading .btn-text {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .result.error {
+            display: block;
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            border: 1px solid rgba(255, 68, 68, 0.2);
+        }
+
+        .result.success {
+            display: block;
+            background: rgba(0, 255, 65, 0.1);
+            color: #00ff41;
+            border: 1px solid rgba(0, 255, 65, 0.2);
+        }
+
+        .result-title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .result-message {
+            color: #aaaaaa;
+            line-height: 1.5;
+            font-size: 13px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 24px;
+            color: #444444;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="user-info">
+                <span class="user-badge">User: <span id="userKey" style="color: #00ff41;">Unknown</span></span>
+                <a href="admin-dashboard.html" id="adminLink" style="display: none; color: #00ff41; font-size: 12px; text-decoration: none; margin-right: 10px;">Admin</a>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            <h1>UID Manager</h1>
+            <p>Add days to user account</p>
+        </div>
+
+        <form id="uidForm">
+            <div class="form-group">
+                <label for="uid">User ID (UID)</label>
+                <input type="text" id="uid" name="uid" placeholder="Enter UID (e.g., 7670617627)" required>
+            </div>
+
+            <div class="form-group">
+                <label for="days">Days to Add (Max: <span id="maxDaysLabel">1</span>)</label>
+                <input type="number" id="days" name="days" value="1" min="1" max="30" required>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span class="spinner"></span>
+                <span class="btn-text">Add Days</span>
+            </button>
+        </form>
+
+        <div id="result" class="result">
+            <div class="result-title" id="resultTitle">Result</div>
+            <div class="result-message" id="resultMessage"></div>
+        </div>
+
+        <div class="footer">
+            UID Management System
+        </div>
+    </div>
+
+    <script>
+        // Show max days from license key
+        const userMaxDays = parseInt(sessionStorage.getItem('maxDays')) || 1;
+        document.getElementById('maxDaysLabel').textContent = userMaxDays;
+        document.getElementById('days').max = userMaxDays;
+        
+        // Check if admin (maxDays = 30 means admin key)
+        if (userMaxDays >= 30) {
+            document.getElementById('userKey').textContent = 'Admin';
+            document.getElementById('adminLink').style.display = 'inline';
+        } else {
+            document.getElementById('userKey').textContent = 'User (Max ' + userMaxDays + ' days)';
+        }
+
+        // Logout function
+        async function logout() {
+            const token = sessionStorage.getItem('authToken');
+            
+            // Call logout endpoint
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+            } catch (e) {
+                // Ignore error
+            }
+            
+            // Clear sessionStorage (not localStorage) - forces re-login with key
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        const form = document.getElementById('uidForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const result = document.getElementById('result');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultMessage = document.getElementById('resultMessage');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const uid = document.getElementById('uid').value.trim();
+            const days = document.getElementById('days').value;
+
+            // Show loading state
+            submitBtn.classList.add('loading');
+            result.className = 'result';
+
+            try {
+                const token = sessionStorage.getItem('authToken');
+                
+                // Check if trying to add more than allowed
+                const userMaxDays = parseInt(sessionStorage.getItem('maxDays')) || 1;
+                if (parseInt(days) > userMaxDays) {
+                    throw new Error(`You can only add up to ${userMaxDays} days with this key`);
+                }
+                
+                // Call backend API with auth token
+                const response = await fetch('/api/add-days', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ uid, days })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Request failed');
+                }
+
+                // Show success
+                result.className = 'result success';
+                resultTitle.textContent = 'Success';
+                resultMessage.textContent = `UID: ${data.uid} | Days: ${data.days} | Response: ${data.response}`;
+
+            } catch (error) {
+                // Show error
+                result.className = 'result error';
+                resultTitle.textContent = 'Error';
+                resultMessage.textContent = error.message;
+                
+                // Redirect to login if unauthorized
+                if (error.message === 'Unauthorized') {
+                    setTimeout(() => {
+                        logout();
+                    }, 2000);
+                }
+            } finally {
+                submitBtn.classList.remove('loading');
+            }
+        });
+    </script>
+</body>
+</html>
